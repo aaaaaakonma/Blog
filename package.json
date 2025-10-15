@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "index.html",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "convert": "node build.js",
+    "redraw": "npx @tailwindcss/cli -i style.css -o output.css --watch",
+    "build": "node build.js && npx @tailwindcss/cli -i style.css -o output.css --watch"
   },
   "keywords": [],
   "author": "",
@@ -12,6 +14,7 @@
   "devDependencies": {
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.14"
+    "tailwindcss": "^4.1.14",
+    "http-server": "^14.1.1"
   }
 }
