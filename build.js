@@ -201,15 +201,19 @@ class BlogBuilder {
       buildTime: new Date().toISOString()
     };
     
+    // Create articles directory first
+    const articlesDir = path.join(this.outputDir, 'articles');
+    await fs.mkdir(articlesDir, { recursive: true });
+    
     await fs.writeFile(
-      path.join(this.outputDir, 'articles', 'manifest.json'),
+      path.join(articlesDir, 'manifest.json'),
       JSON.stringify(manifest, null, 2)
     );
     
     // Also copy metadata files for runtime access
     for (const article of articles) {
       const srcPath = path.join(this.articlesDir, article.slug, 'metadata.json');
-      const destDir = path.join(this.outputDir, 'articles', article.slug);
+      const destDir = path.join(articlesDir, article.slug);
       const destPath = path.join(destDir, 'metadata.json');
       
       await fs.mkdir(destDir, { recursive: true });
