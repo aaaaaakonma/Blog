@@ -77,7 +77,7 @@ class MarkdownRenderer {
 class BlogBuilder {
   constructor(options = {}) {
     this.articlesDir = options.articlesDir || './articles';
-    this.outputDir = options.outputDir || './dist';
+    this.outputDir = options.outputDir || './public';
     this.templatePath = options.templatePath || './template.html';
     this.renderer = new MarkdownRenderer();
   }
