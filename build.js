@@ -298,7 +298,7 @@ class BlogBuilder {
 if (require.main === module) {
   const builder = new BlogBuilder({
     articlesDir: './articles',
-    outputDir: './dist',
+    outputDir: './public',
     templatePath: './template.html'
   });
   
