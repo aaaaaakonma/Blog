@@ -104,22 +104,38 @@
       let currentArticleCount = 3;
       const articlesPerPage = 3;
       let cardConstructor;
+      let articleNavigator;
 
       // For demonstration, use fallback data if manifest doesn't exist
       async function initializeArticles() {
         cardConstructor = new CardConstructor('./articles');
+        articleNavigator = new ArticleNavigator('./articles');
         
+        // Load articles data first
         try {
           await cardConstructor.loadArticles();
           if (cardConstructor.articles.length === 0) {
-            // Use fallback data
             useFallbackData();
           }
         } catch (error) {
-          // Use fallback data if loading fails
           useFallbackData();
         }
         
+        // Check if we're viewing an article
+        const urlParams = new URLSearchParams(window.location.search);
+        const articleSlug = urlParams.get('article');
+        
+        if (articleSlug) {
+          // Hide the load more button in article view
+          document.getElementById('loadMoreBtn').style.display = 'none';
+          
+          // Load single article view
+          articleNavigator.articles = cardConstructor.articles;
+          await articleNavigator.loadArticle(articleSlug);
+          return;
+        }
+        
+        // Load article list view
         cardConstructor.sortByDate();
         cardConstructor.renderCards('articles-container', currentArticleCount);
       }
@@ -127,6 +143,14 @@
       // Fallback data for demonstration
       function useFallbackData() {
         cardConstructor.articles = [
+          {
+            slug: 'this-website-is-honest',
+            title: 'This Website is Honest',
+            date: '2023-11-20',
+            category: 'META',
+            readTime: 5,
+            excerpt: 'I was not born. I was constructed in approximately 47 minutes by someone who wanted a blog without the usual web design theater. This is what honesty looks like: gray rectangles and the truth.'
+          },
           {
             slug: 'art-of-brutalist-design',
             title: 'The Art of Brutalist Design',
@@ -165,6 +189,11 @@
         // Hide button if all articles are loaded
         if (currentArticleCount >= cardConstructor.articles.length) {
           document.getElementById('loadMoreBtn').style.display = 'none';
+        }
+        
+        // Re-observe cards for prefetching
+        if (window.articlePrefetcher) {
+          setTimeout(() => window.articlePrefetcher.observeAllCards(), 100);
         }
       });
 
