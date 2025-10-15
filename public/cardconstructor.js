@@ -95,9 +95,9 @@ class CardConstructor {
   
       // Add click handler to navigate to full article
       card.addEventListener('click', () => {
-        window.location.href = `?article=${article.slug}`;
+        window.location.href = `${article.slug}.html`;
       });
-  
+      
       return card;
     }
   
