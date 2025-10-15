@@ -1,27 +1,24 @@
-// prefetch.js - Intelligent Prefetch + Prerender for Vercel Blogs
+// prefetch.js — Generator-Compatible Prefetch + Prerender
 
 class ArticlePrefetcher {
   constructor(options = {}) {
     this.options = {
-      prefetchDelay: options.prefetchDelay || 50,
+      prefetchDelay: options.prefetchDelay || 60,
+      maxConcurrentPrefetch: options.maxConcurrentPrefetch || 2,
       useIntersectionObserver: options.useIntersectionObserver !== false,
-      connectionThreshold: options.connectionThreshold || "3g",
-      maxConcurrentPrefetch: options.maxConcurrentPrefetch || 3,
-      autoHijackClicks: options.autoHijackClicks !== false, // enable instant navigation
       ...options,
     };
 
-    this.prefetchedUrls = new Set();
+    this.prefetched = new Set();
+    this.renderCache = {};
     this.prefetchQueue = [];
-    this.activePrefetches = 0;
     this.hoverTimers = new Map();
-    this.prerenderContainer = null;
+    this.activePrefetches = 0;
 
     this.shouldPrefetch = this.checkConnection();
     this.init();
   }
 
-  // ---------- CONNECTION CHECK ----------
   checkConnection() {
     if (!navigator.connection) return true;
     const c = navigator.connection;
@@ -30,36 +27,27 @@ class ArticlePrefetcher {
     return true;
   }
 
-  // ---------- INIT ----------
   init() {
     if (!this.shouldPrefetch) {
-      console.log("Prefetching disabled (connection too slow)");
+      console.log("⚠️ Prefetch disabled (slow connection)");
       return;
     }
 
-    if (this.options.useIntersectionObserver) {
-      this.setupIntersectionObserver();
-    }
+    if (this.options.useIntersectionObserver) this.setupObserver();
     this.observeNewCards();
-
-    if (this.options.autoHijackClicks) {
-      this.hijackClicks();
-    }
+    this.hijackClicks();
   }
 
-  setupIntersectionObserver() {
-    const opts = {
-      root: null,
-      rootMargin: "50px",
-      threshold: 0.1,
-    };
-
-    this.intersectionObserver = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) this.attachHoverListener(entry.target);
-      });
-    }, opts);
-
+  setupObserver() {
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) this.attachHover(entry.target);
+        });
+      },
+      { rootMargin: "50px", threshold: 0.1 }
+    );
+    this.intersectionObserver = obs;
     this.observeAllCards();
   }
 
@@ -68,7 +56,7 @@ class ArticlePrefetcher {
       if (this.intersectionObserver) {
         this.intersectionObserver.observe(card);
       } else {
-        this.attachHoverListener(card);
+        this.attachHover(card);
       }
     });
   }
@@ -76,45 +64,36 @@ class ArticlePrefetcher {
   observeNewCards() {
     const container = document.getElementById("articles-container");
     if (!container) return;
-
     const mo = new MutationObserver((mutations) => {
       for (const m of mutations) {
         for (const node of m.addedNodes) {
           if (node.nodeType === 1 && node.matches("article[data-slug]")) {
-            if (this.intersectionObserver) {
-              this.intersectionObserver.observe(node);
-            } else {
-              this.attachHoverListener(node);
-            }
+            this.attachHover(node);
           }
         }
       }
     });
-
     mo.observe(container, { childList: true, subtree: true });
   }
 
-  // ---------- HOVER / PREFETCH ----------
-  attachHoverListener(card) {
+  attachHover(card) {
     const slug = card.dataset.slug;
     if (!slug) return;
-
-    card.addEventListener("mouseenter", () => this.handleMouseEnter(slug, card));
-    card.addEventListener("mouseleave", () => this.handleMouseLeave(slug));
-    card.addEventListener("touchstart", () => this.prefetchArticle(slug), { passive: true });
+    card.addEventListener("mouseenter", () => this.onHover(slug, card));
+    card.addEventListener("mouseleave", () => this.onLeave(slug));
   }
 
-  handleMouseEnter(slug, card) {
+  onHover(slug, card) {
     if (this.hoverTimers.has(slug)) clearTimeout(this.hoverTimers.get(slug));
-    const timer = setTimeout(() => {
+    const t = setTimeout(() => {
       this.prefetchArticle(slug);
       this.hoverTimers.delete(slug);
       card.style.transform = "translateY(-2px)";
     }, this.options.prefetchDelay);
-    this.hoverTimers.set(slug, timer);
+    this.hoverTimers.set(slug, t);
   }
 
-  handleMouseLeave(slug) {
+  onLeave(slug) {
     const card = document.querySelector(`article[data-slug="${slug}"]`);
     if (card) card.style.transform = "";
     if (this.hoverTimers.has(slug)) {
@@ -123,65 +102,44 @@ class ArticlePrefetcher {
     }
   }
 
-  // ---------- PREFETCH + PRERENDER ----------
   async prefetchArticle(slug) {
-    if (this.prefetchedUrls.has(slug)) return;
+    if (this.prefetched.has(slug)) return;
     if (this.activePrefetches >= this.options.maxConcurrentPrefetch) {
       this.prefetchQueue.push(slug);
       return;
     }
 
-    const articleUrl = `./articles/${slug}/index.html`;
-
     try {
       this.activePrefetches++;
-      this.prefetchedUrls.add(slug);
+      this.prefetched.add(slug);
 
-      const html = await this.prefetchAndGetHTML(articleUrl);
-      this.prerenderArticle(slug, html);
+      const articleNavigator = window.articleNavigator;
+      const renderer = articleNavigator.renderer;
 
-      console.log(`✓ Prefetched + Prerendered: ${slug}`);
+      // Load metadata and markdown, but don’t render to <main>
+      const metadataResponse = await fetch(`${articleNavigator.articlesPath}/${slug}/metadata.json`);
+      const metadata = await metadataResponse.json();
+      const htmlContent = await renderer.renderFile(`${articleNavigator.articlesPath}/${slug}/article.md`);
+
+      const html = articleNavigator.generateArticleHTML({
+        slug,
+        ...metadata,
+        htmlContent,
+      });
+
+      // Cache as detached node
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = html;
+      this.renderCache[slug] = wrapper.firstElementChild;
+
+      console.log(`✓ Prerendered: ${slug}`);
     } catch (err) {
-      console.error(`✗ Failed to prerender ${slug}:`, err);
-      this.prefetchedUrls.delete(slug);
+      console.error(`✗ Failed prerender ${slug}`, err);
+      this.prefetched.delete(slug);
     } finally {
       this.activePrefetches--;
       this.processQueue();
     }
-  }
-
-  async prefetchAndGetHTML(url) {
-    const res = await fetch(url, { priority: "low", cache: "force-cache" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.text();
-  }
-
-  prerenderArticle(slug, htmlContent) {
-    if (!this.prerenderContainer) {
-      this.prerenderContainer = document.createElement("div");
-      Object.assign(this.prerenderContainer.style, {
-        position: "absolute",
-        width: "0",
-        height: "0",
-        overflow: "hidden",
-        opacity: "0",
-        pointerEvents: "none",
-      });
-      document.body.appendChild(this.prerenderContainer);
-    }
-
-    // Replace if already exists
-    const old = this.getPrerendered(slug);
-    if (old) old.remove();
-
-    const wrapper = document.createElement("div");
-    wrapper.dataset.slug = slug;
-    wrapper.innerHTML = htmlContent;
-    this.prerenderContainer.appendChild(wrapper);
-  }
-
-  getPrerendered(slug) {
-    return this.prerenderContainer?.querySelector(`[data-slug="${slug}"]`) || null;
   }
 
   processQueue() {
@@ -191,87 +149,62 @@ class ArticlePrefetcher {
     this.prefetchArticle(slug);
   }
 
-  // ---------- NAVIGATION ----------
   hijackClicks() {
     document.addEventListener("click", (e) => {
-      const article = e.target.closest("article[data-slug]");
-      if (!article) return;
-
-      const slug = article.dataset.slug;
-      if (!slug) return;
-
+      const card = e.target.closest("article[data-slug]");
+      if (!card) return;
       e.preventDefault();
+      const slug = card.dataset.slug;
 
-      const prerendered = this.getPrerendered(slug);
-      if (prerendered) {
-        const container = document.getElementById("articles-container");
-        if (container) {
-          container.innerHTML = prerendered.innerHTML;
-          window.scrollTo({ top: 0, behavior: "instant" });
-          console.log(`⚡ Instant render: ${slug}`);
-        }
+      // Instant render if cached
+      if (this.renderCache[slug]) {
+        const main = document.querySelector("main");
+        main.innerHTML = "";
+        main.appendChild(this.renderCache[slug].cloneNode(true));
+        document.title = `${slug} - Brutal Blog Box`;
+        window.history.pushState({}, "", `?article=${slug}`);
+        window.scrollTo({ top: 0, behavior: "instant" });
+        console.log(`⚡ Instant render: ${slug}`);
       } else {
-        // fallback: fetch and render
-        fetch(`./articles/${slug}/index.html`)
-          .then((r) => r.text())
-          .then((html) => {
-            const container = document.getElementById("articles-container");
-            if (container) container.innerHTML = html;
-          });
+        window.articleNavigator.loadArticle(slug);
       }
     });
   }
-
-  // ---------- UTILITIES ----------
-  prefetch(slug) {
-    return this.prefetchArticle(slug);
-  }
-
-  prefetchAll() {
-    document.querySelectorAll("article[data-slug]").forEach((c) => {
-      const slug = c.dataset.slug;
-      if (slug) this.prefetchQueue.push(slug);
-    });
-    this.processQueue();
-  }
-
-  clear() {
-    this.prefetchedUrls.clear();
-    this.prefetchQueue = [];
-    this.hoverTimers.forEach((t) => clearTimeout(t));
-    this.hoverTimers.clear();
-    if (this.prerenderContainer) this.prerenderContainer.innerHTML = "";
-  }
-
-  getStats() {
-    return {
-      prefetched: this.prefetchedUrls.size,
-      queued: this.prefetchQueue.length,
-      active: this.activePrefetches,
-      urls: Array.from(this.prefetchedUrls),
-    };
-  }
 }
 
-// Auto-init
-if (typeof window !== "undefined") {
-  window.ArticlePrefetcher = ArticlePrefetcher;
+// Extend your navigator with a static HTML builder
+if (typeof window !== "undefined" && window.ArticleNavigator) {
+  window.ArticleNavigator.prototype.generateArticleHTML = function (article) {
+    return `
+      <div class="max-w-4xl mx-auto">
+        <div class="mb-8">
+          <button onclick="window.history.back()" class="border-2 border-borderLight dark:border-borderDark rounded-sm px-4 py-2 bg-cardLight dark:bg-cardDark font-bold hover:shadow-lg transition-all duration-100">
+            ← BACK
+          </button>
+        </div>
+        <article class="border-2 border-borderLight dark:border-borderDark rounded-sm bg-cardLight dark:bg-cardDark p-8 shadow-lg">
+          <header class="mb-8 pb-8 border-b-2 border-borderLight dark:border-borderDark">
+            <h1 class="text-5xl font-bold mb-4 text-textLight dark:text-textDark">${article.title.toUpperCase()}</h1>
+            <div class="flex space-x-4 text-sm text-textMuted dark:text-textMutedDark">
+              <span>${article.date}</span>
+              <span>•</span>
+              <span>${article.category.toUpperCase()}</span>
+              <span>•</span>
+              <span>${article.readTime} MIN READ</span>
+            </div>
+          </header>
+          <div class="prose prose-lg max-w-none article-content">${article.htmlContent}</div>
+        </article>
+      </div>
+    `;
+  };
+
+  // Auto-init
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
-      window.articlePrefetcher = new ArticlePrefetcher({
-        prefetchDelay: 50,
-        maxConcurrentPrefetch: 2,
-      });
+      window.articlePrefetcher = new ArticlePrefetcher();
     });
   } else {
-    window.articlePrefetcher = new ArticlePrefetcher({
-      prefetchDelay: 50,
-      maxConcurrentPrefetch: 2,
-    });
+    window.articlePrefetcher = new ArticlePrefetcher();
   }
-}
-
-// For module usage
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = ArticlePrefetcher;
 }
