@@ -1,4 +1,4 @@
-// build.js - Static Blog Generator for Terminal Speed
+// build.js - Static Article Generator (keeps your existing index.html)
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -78,12 +78,12 @@ class BlogBuilder {
   constructor(options = {}) {
     this.articlesDir = options.articlesDir || './articles';
     this.outputDir = options.outputDir || './public';
-    this.templatePath = options.templatePath || './template.html';
+    this.templatePath = options.templatePath || './article-template.html';
     this.renderer = new MarkdownRenderer();
   }
 
   async build() {
-    console.log('🔨 Building static blog...\n');
+    console.log('🔨 Building static articles...\n');
     
     const startTime = Date.now();
     
@@ -99,15 +99,16 @@ class BlogBuilder {
       await this.buildArticle(article, template);
     }
     
-    // Generate index
-    await this.buildIndex(articles, template);
-    
-    // Generate manifest for card constructor
+    // Generate manifest for your existing card constructor
     await this.generateManifest(articles);
+    
+    // Copy prefetch script
+    await this.copyPrefetchScript();
     
     const duration = Date.now() - startTime;
     console.log(`\n✅ Build complete in ${duration}ms`);
     console.log(`📦 Output: ${this.outputDir}/`);
+    console.log(`\n💡 Your index.html will load articles from manifest.json`);
   }
 
   async loadTemplate() {
@@ -186,7 +187,7 @@ class BlogBuilder {
       .replace('{{TITLE}}', `${article.title} - Brutal Blog Box`)
       .replace('{{CONTENT}}', articleHTML);
     
-    // Write to dist
+    // Write to output directory
     const outputPath = path.join(this.outputDir, `${article.slug}.html`);
     await fs.mkdir(this.outputDir, { recursive: true });
     await fs.writeFile(outputPath, this.minifyHTML(fullHTML));
@@ -194,69 +195,39 @@ class BlogBuilder {
     console.log(`✓ Built: ${article.slug}.html`);
   }
 
-  async buildIndex(articles, template) {
-    const cardsHTML = articles.map(article => `
-      <article class="mb-4 border-2 border-borderLight dark:border-borderDark rounded-sm bg-cardLight dark:bg-cardDark p-4 shadow transition-all duration-100 hover:shadow-lg cursor-pointer" onclick="window.location.href='${article.slug}.html'">
-        <header class="mb-6">
-          <h2 class="text-3xl font-bold mb-2 text-textLight dark:text-textDark">
-            ${this.escape(article.title.toUpperCase())}
-          </h2>
-          <div class="flex space-x-4 text-sm text-textMuted dark:text-textMutedDark">
-            <span>${article.date}</span>
-            <span>•</span>
-            <span>${article.category.toUpperCase()}</span>
-            <span>•</span>
-            <span>${article.readTime} MIN READ</span>
-          </div>
-        </header>
-        <p class="mb-4 leading-relaxed text-textMuted dark:text-textMutedDark">
-          ${this.escape(article.excerpt)}
-        </p>
-      </article>
-    `).join('\n');
-    
-    const indexHTML = `
-      <div class="max-w-4xl mx-auto">
-        <header class="mb-8">
-          <h1 class="text-5xl font-bold text-textLight dark:text-textDark">BRUTAL BLOG BOX</h1>
-        </header>
-        <div id="articles-container">
-          ${cardsHTML}
-        </div>
-      </div>
-    `;
-    
-    const fullHTML = template
-      .replace('{{TITLE}}', 'Brutal Blog Box')
-      .replace('{{CONTENT}}', indexHTML);
-    
-    await fs.writeFile(
-      path.join(this.outputDir, 'index.html'),
-      this.minifyHTML(fullHTML)
-    );
-    
-    console.log('✓ Built: index.html');
-  }
-
   async generateManifest(articles) {
     const manifest = {
-      articles: articles.map(a => ({
-        slug: a.slug,
-        title: a.title,
-        date: a.date,
-        category: a.category,
-        readTime: a.readTime,
-        excerpt: a.excerpt
-      })),
+      articles: articles.map(a => a.slug),
       buildTime: new Date().toISOString()
     };
     
     await fs.writeFile(
-      path.join(this.outputDir, 'manifest.json'),
+      path.join(this.outputDir, 'articles', 'manifest.json'),
       JSON.stringify(manifest, null, 2)
     );
     
-    console.log('✓ Generated: manifest.json');
+    // Also copy metadata files for runtime access
+    for (const article of articles) {
+      const srcPath = path.join(this.articlesDir, article.slug, 'metadata.json');
+      const destDir = path.join(this.outputDir, 'articles', article.slug);
+      const destPath = path.join(destDir, 'metadata.json');
+      
+      await fs.mkdir(destDir, { recursive: true });
+      await fs.copyFile(srcPath, destPath);
+    }
+    
+    console.log('✓ Generated: manifest.json + metadata files');
+  }
+
+  async copyPrefetchScript() {
+    try {
+      const src = './prefetch-static.js';
+      const dest = path.join(this.outputDir, 'prefetch-static.js');
+      await fs.copyFile(src, dest);
+      console.log('✓ Copied: prefetch-static.js');
+    } catch (err) {
+      console.warn('⚠️  prefetch-static.js not found, skipping');
+    }
   }
 
   minifyHTML(html) {
@@ -279,16 +250,58 @@ class BlogBuilder {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{TITLE}}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="/prefetch-static.js" defer></script>
+  <link href="./output.css" rel="stylesheet">
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap");
+    body {
+      font-family: "Space Mono", monospace;
+    }
+  </style>
 </head>
-<body class="bg-bgLight dark:bg-bgDark min-h-screen p-8">
-  <main>
+<body class="bg-bgLight dark:bg-bgDark text-textLight dark:text-textDark transition-colors duration-200">
+  <header class="container mx-auto my-7">
+    <div class="flex justify-between items-center">
+      <h1 class="text-4xl font-bold tracking-tighter">BRUTAL BLOG BOX</h1>
+      <nav>
+        <ul class="flex space-x-3">
+          <li class="border-2 border-borderLight dark:border-borderDark rounded-sm px-4 py-2 font-bold">
+            ARCHIVE
+          </li>
+          <button class="border-2 border-borderLight dark:border-borderDark rounded-sm px-4 py-2 font-bold">
+            ABOUT
+          </button>
+          <button id="darkModeToggle" class="border-2 border-borderLight dark:border-borderDark rounded-sm w-20 px-4 py-1 font-bold">
+            DARK
+          </button>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  <main class="container mx-auto">
     {{CONTENT}}
   </main>
+  <footer class="container mx-auto mt-16 mb-8 text-sm">
+    <div class="border-2 border-borderLight dark:border-borderDark rounded-sm p-2">
+      <div class="flex justify-between items-center">
+        <p>© 2023 BRUTAL BLOG BOX. NO RIGHTS RESERVED.</p>
+        <p>BUILT WITH HTML AND RAGE</p>
+      </div>
+    </div>
+  </footer>
+  <script src="prefetch-static.js"></script>
+  <script>
+    // Dark mode toggle
+    const darkToggle = document.getElementById("darkModeToggle");
+    if (darkToggle) {
+      darkToggle.addEventListener("mousedown", () => {
+        document.documentElement.classList.toggle("dark");
+        darkToggle.textContent = document.documentElement.classList.contains("dark") ? "LIGHT" : "DARK";
+      });
+    }
+  </script>
 </body>
 </html>`;
   }
@@ -299,7 +312,7 @@ if (require.main === module) {
   const builder = new BlogBuilder({
     articlesDir: './articles',
     outputDir: './public',
-    templatePath: './template.html'
+    templatePath: './article-template.html'
   });
   
   builder.build().catch(err => {
