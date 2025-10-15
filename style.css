@@ -1,0 +1,14 @@
+@import "tailwindcss";
+@theme {
+    --color-cardLight: #e8e8e8;
+    --color-cardDark: #111111;
+    --color-bgLight: #f5f5f5;
+    --color-bgDark: #0a0a0a;
+    --color-textLight: #0a0a0a;
+    --color-textDark: #e8e8e8;
+    --color-textMuted: #525252;
+    --color-textMutedDark: #a0a0a0;
+    --color-borderLight: #000000;
+    --color-borderDark: #4a4a4a;
+  }
+@custom-variant dark (&:where(.dark, .dark *));
