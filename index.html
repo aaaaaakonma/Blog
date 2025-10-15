@@ -62,98 +62,12 @@
       </div>
     </header>
     <main class="container mx-auto">
-      <article
-        class="mb-4 border-2 border-borderLight dark:border-borderDark rounded-sm bg-cardLight dark:bg-cardDark p-3 shadow transition-all duration-100"
-      >
-        <header class="mb-6">
-          <h2 class="text-3xl font-bold mb-2 text-textLight dark:text-textDark">
-            THE ART OF BRUTALIST DESIGN
-          </h2>
-          <div
-            class="flex space-x-4 text-sm text-textMuted dark:text-textMutedDark"
-          >
-            <span>2023-11-15</span>
-            <span>•</span>
-            <span>DESIGN</span>
-            <span>•</span>
-            <span>4 MIN READ</span>
-          </div>
-        </header>
-        <p class="mb-4 leading-relaxed text-textMuted dark:text-textMutedDark">
-          Brutalism in web design rejects unnecessary decoration in favor of
-          bold, raw interfaces. This approach emphasizes content over form,
-          using high contrast typography, unpolished elements, and grid-based
-          layouts.
-        </p>
-        <p class="leading-relaxed text-textMuted dark:text-textMutedDark">
-          The movement originated from architectural brutalism of the mid-20th
-          century, where buildings showcased raw concrete and structural
-          elements rather than hiding them. In digital spaces, this translates
-          to exposed HTML elements, default browser styling, and monochromatic
-          color schemes.
-        </p>
-      </article>
-      <article
-        class="mb-4 border-2 border-borderLight dark:border-borderDark rounded-sm bg-cardLight dark:bg-cardDark p-4 shadow transition-all duration-100"
-      >
-        <header class="mb-6">
-          <h2 class="text-3xl font-bold mb-2 text-textLight dark:text-textDark">
-            WHY YOUR WEBSITE DOESN'T NEED JAVASCRIPT
-          </h2>
-          <div
-            class="flex space-x-4 text-sm text-textMuted dark:text-textMutedDark"
-          >
-            <span>2023-10-28</span>
-            <span>•</span>
-            <span>TECH</span>
-            <span>•</span>
-            <span>6 MIN READ</span>
-          </div>
-        </header>
-        <p class="mb-4 leading-relaxed text-textMuted dark:text-textMutedDark">
-          Modern web development has become obsessed with JavaScript frameworks,
-          often at the expense of accessibility, performance, and simplicity.
-          Many websites can function perfectly well with just HTML and CSS.
-        </p>
-        <p class="leading-relaxed text-textMuted dark:text-textMutedDark">
-          Consider that the average webpage now ships over 400KB of JavaScript,
-          yet most interactions could be handled with simple form submissions
-          and page refreshes. This article explores how to build functional
-          websites without client-side JavaScript.
-        </p>
-      </article>
-      <article
-        class="mb-4 border-2 border-borderLight dark:border-borderDark rounded-sm bg-cardLight dark:bg-cardDark p-4 shadow transition-all duration-200"
-      >
-        <header class="mb-6">
-          <h2 class="text-3xl font-bold mb-2 text-textLight dark:text-textDark">
-            THE CASE FOR MONOSPACED TYPEFACES
-          </h2>
-          <div
-            class="flex space-x-4 text-sm text-textMuted dark:text-textMutedDark"
-          >
-            <span>2023-09-12</span>
-            <span>•</span>
-            <span>TYPOGRAPHY</span>
-            <span>•</span>
-            <span>3 MIN READ</span>
-          </div>
-        </header>
-        <p class="mb-4 leading-relaxed text-textMuted dark:text-textMutedDark">
-          Monospaced fonts, once relegated to terminal windows and code editors,
-          are making a comeback in mainstream design. Their uniform character
-          width creates a rhythmic reading experience that many find calming and
-          focused.
-        </p>
-        <p class="leading-relaxed text-textMuted dark:text-textMutedDark">
-          Beyond aesthetics, monospaced typefaces force designers to think
-          differently about layout and hierarchy. The constraints lead to
-          creative solutions and more deliberate typographic choices. This
-          article examines several websites using monospace effectively.
-        </p>
-      </article>
+      <!-- Articles will be loaded here dynamically -->
+      <div id="articles-container"></div>
+      
       <div class="flex justify-center">
         <button
+          id="loadMoreBtn"
           class="border-2 border-borderLight dark:border-borderDark rounded-sm px-4 py-2 bg-cardLight dark:bg-cardDark font-medium text-md mt-2 shadow transition-all duration-100"
         >
           LOAD MORE ARTICLES
@@ -170,7 +84,12 @@
         </div>
       </div>
     </footer>
+    
+    <script src="cardconstructor.js"></script>
+    <script src="markdown-renderer.js"></script>
+    <script src="prefetch.js"></script>
     <script>
+      // Dark mode toggle
       const darkToggle = document.getElementById("darkModeToggle");
       darkToggle.addEventListener("mousedown", () => {
         document.documentElement.classList.toggle("dark");
@@ -180,6 +99,85 @@
           darkToggle.textContent = "DARK";
         }
       });
+
+      // Initialize card constructor
+      let currentArticleCount = 3;
+      const articlesPerPage = 3;
+      let cardConstructor;
+
+      // For demonstration, use fallback data if manifest doesn't exist
+      async function initializeArticles() {
+        cardConstructor = new CardConstructor('./articles');
+        
+        try {
+          await cardConstructor.loadArticles();
+          if (cardConstructor.articles.length === 0) {
+            // Use fallback data
+            useFallbackData();
+          }
+        } catch (error) {
+          // Use fallback data if loading fails
+          useFallbackData();
+        }
+        
+        cardConstructor.sortByDate();
+        cardConstructor.renderCards('articles-container', currentArticleCount);
+      }
+
+      // Fallback data for demonstration
+      function useFallbackData() {
+        cardConstructor.articles = [
+          {
+            slug: 'art-of-brutalist-design',
+            title: 'The Art of Brutalist Design',
+            date: '2023-11-15',
+            category: 'DESIGN',
+            readTime: 4,
+            excerpt: 'Brutalism in web design rejects unnecessary decoration in favor of bold, raw interfaces. This approach emphasizes content over form, using high contrast typography, unpolished elements, and grid-based layouts.',
+            content: 'The movement originated from architectural brutalism of the mid-20th century, where buildings showcased raw concrete and structural elements rather than hiding them. In digital spaces, this translates to exposed HTML elements, default browser styling, and monochromatic color schemes.'
+          },
+          {
+            slug: 'why-website-doesnt-need-javascript',
+            title: 'Why Your Website Doesn\'t Need JavaScript',
+            date: '2023-10-28',
+            category: 'TECH',
+            readTime: 6,
+            excerpt: 'Modern web development has become obsessed with JavaScript frameworks, often at the expense of accessibility, performance, and simplicity. Many websites can function perfectly well with just HTML and CSS.',
+            content: 'Consider that the average webpage now ships over 400KB of JavaScript, yet most interactions could be handled with simple form submissions and page refreshes. This article explores how to build functional websites without client-side JavaScript.'
+          },
+          {
+            slug: 'case-for-monospaced-typefaces',
+            title: 'The Case for Monospaced Typefaces',
+            date: '2023-09-12',
+            category: 'TYPOGRAPHY',
+            readTime: 3,
+            excerpt: 'Monospaced fonts, once relegated to terminal windows and code editors, are making a comeback in mainstream design. Their uniform character width creates a rhythmic reading experience that many find calming and focused.',
+            content: 'Beyond aesthetics, monospaced typefaces force designers to think differently about layout and hierarchy. The constraints lead to creative solutions and more deliberate typographic choices. This article examines several websites using monospace effectively.'
+          }
+        ];
+      }
+
+      // Load more button handler
+      document.getElementById('loadMoreBtn').addEventListener('click', () => {
+        currentArticleCount += articlesPerPage;
+        cardConstructor.renderCards('articles-container', currentArticleCount);
+        
+        // Hide button if all articles are loaded
+        if (currentArticleCount >= cardConstructor.articles.length) {
+          document.getElementById('loadMoreBtn').style.display = 'none';
+        }
+      });
+
+      // Initialize on page load
+      initializeArticles();
+
+      // Initialize prefetcher after a short delay to ensure cards are rendered
+      setTimeout(() => {
+        if (window.articlePrefetcher) {
+          window.articlePrefetcher.observeAllCards();
+          console.log('🚀 Prefetching enabled');
+        }
+      }, 500);
     </script>
   </body>
 </html>
