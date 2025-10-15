@@ -6,7 +6,7 @@ class StaticPrefetcher {
       hoverDelay: options.hoverDelay || 65,           // ms before prefetch on hover
       maxConcurrent: options.maxConcurrent || 3,      // max simultaneous prefetches
       aggressiveMode: options.aggressiveMode || false, // prefetch all visible links
-      instantNavigation: options.instantNavigation !== true, // hijack clicks for instant nav
+      instantNavigation: options.instantNavigation !== false, // hijack clicks for instant nav
       ...options
     };
 
@@ -56,6 +56,7 @@ class StaticPrefetcher {
   setupHoverPrefetch() {
     // Delegate event listener for better performance
     document.addEventListener('mouseenter', (e) => {
+      if (!e.target || !e.target.closest) return;
       const article = e.target.closest('article[onclick]');
       if (!article) return;
 
@@ -66,6 +67,7 @@ class StaticPrefetcher {
     }, true); // Use capture phase
 
     document.addEventListener('mouseleave', (e) => {
+      if (!e.target || !e.target.closest) return;
       const article = e.target.closest('article[onclick]');
       if (!article) return;
 
@@ -196,6 +198,7 @@ class StaticPrefetcher {
 
   setupInstantNav() {
     document.addEventListener('click', (e) => {
+      if (!e.target || !e.target.closest) return;
       const article = e.target.closest('article[onclick]');
       if (!article) return;
 
