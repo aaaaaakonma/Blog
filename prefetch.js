@@ -1,164 +1,185 @@
-// prefetch.js - Intelligent Prefetch + Prerender for Vercel Blogs
+// prefetch-static.js - Aggressive prefetching for static HTML blog
 
-class ArticlePrefetcher {
+class StaticPrefetcher {
   constructor(options = {}) {
     this.options = {
-      prefetchDelay: options.prefetchDelay || 50,
-      useIntersectionObserver: options.useIntersectionObserver !== false,
-      connectionThreshold: options.connectionThreshold || "3g",
-      maxConcurrentPrefetch: options.maxConcurrentPrefetch || 3,
-      autoHijackClicks: options.autoHijackClicks !== false, // enable instant navigation
-      ...options,
+      hoverDelay: options.hoverDelay || 65,           // ms before prefetch on hover
+      maxConcurrent: options.maxConcurrent || 3,      // max simultaneous prefetches
+      aggressiveMode: options.aggressiveMode || false, // prefetch all visible links
+      instantNavigation: options.instantNavigation !== true, // hijack clicks for instant nav
+      ...options
     };
 
-    this.prefetchedSlugs = new Set();
-    this.htmlCache = new Map();
+    this.prefetched = new Set();
+    this.cache = new Map();
+    this.hoverTimers = new Map();
     this.prefetchQueue = [];
     this.activePrefetches = 0;
-    this.hoverTimers = new Map();
-    this.renderer = null; // Will be initialized later
 
     this.shouldPrefetch = this.checkConnection();
     this.init();
   }
 
-  // ---------- CONNECTION CHECK ----------
   checkConnection() {
     if (!navigator.connection) return true;
     const c = navigator.connection;
     if (c.saveData) return false;
-    if (c.effectiveType === "slow-2g" || c.effectiveType === "2g") return false;
+    if (c.effectiveType === 'slow-2g' || c.effectiveType === '2g') return false;
     return true;
   }
 
-  // ---------- INIT ----------
   init() {
     if (!this.shouldPrefetch) {
-      console.log("Prefetching disabled (connection too slow)");
+      console.log('⚠️ Prefetch disabled (save-data or slow connection)');
       return;
     }
-    
-    // Defer initialization until MarkdownRenderer is available
-    const checkDependencies = () => {
-      if (typeof MarkdownRenderer !== 'undefined') {
-        this.renderer = new MarkdownRenderer();
-        if (this.options.useIntersectionObserver) {
-          this.setupIntersectionObserver();
-        }
-        this.observeNewCards();
 
-        if (this.options.autoHijackClicks) {
-          this.hijackClicks();
-        }
-      } else {
-        setTimeout(checkDependencies, 50); // Check again shortly
+    console.log('⚡ StaticPrefetcher initialized');
+
+    // Set up hover-based prefetching
+    this.setupHoverPrefetch();
+
+    // Set up instant navigation
+    if (this.options.instantNavigation) {
+      this.setupInstantNav();
+    }
+
+    // Aggressive mode: prefetch all visible articles immediately
+    if (this.options.aggressiveMode) {
+      this.prefetchVisible();
+    }
+
+    // Prefetch on viewport intersection
+    this.setupIntersectionPrefetch();
+  }
+
+  setupHoverPrefetch() {
+    // Delegate event listener for better performance
+    document.addEventListener('mouseenter', (e) => {
+      const article = e.target.closest('article[onclick]');
+      if (!article) return;
+
+      const url = this.extractURL(article);
+      if (!url) return;
+
+      this.scheduleHoverPrefetch(url, article);
+    }, true); // Use capture phase
+
+    document.addEventListener('mouseleave', (e) => {
+      const article = e.target.closest('article[onclick]');
+      if (!article) return;
+
+      const url = this.extractURL(article);
+      if (url && this.hoverTimers.has(url)) {
+        clearTimeout(this.hoverTimers.get(url));
+        this.hoverTimers.delete(url);
       }
-    };
-    checkDependencies();
+    }, true);
   }
 
-  setupIntersectionObserver() {
-    const opts = {
-      root: null,
-      rootMargin: "50px",
-      threshold: 0.1,
-    };
+  scheduleHoverPrefetch(url, article) {
+    if (this.hoverTimers.has(url)) return;
 
-    this.intersectionObserver = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) this.attachHoverListener(entry.target);
-      });
-    }, opts);
+    const timer = setTimeout(() => {
+      this.prefetch(url);
+      this.hoverTimers.delete(url);
+      
+      // Subtle hover feedback
+      article.style.transform = 'translateY(-2px)';
+      setTimeout(() => {
+        article.style.transform = '';
+      }, 150);
+    }, this.options.hoverDelay);
 
-    this.observeAllCards();
+    this.hoverTimers.set(url, timer);
   }
 
-  observeAllCards() {
-    document.querySelectorAll("article[data-slug]").forEach((card) => {
-      if (this.intersectionObserver) {
-        this.intersectionObserver.observe(card);
-      } else {
-        this.attachHoverListener(card);
-      }
-    });
-  }
-
-  observeNewCards() {
-    const container = document.getElementById("articles-container");
-    if (!container) return;
-
-    const mo = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        for (const node of m.addedNodes) {
-          if (node.nodeType === 1 && node.matches("article[data-slug]")) {
-            if (this.intersectionObserver) {
-              this.intersectionObserver.observe(node);
-            } else {
-              this.attachHoverListener(node);
-            }
+  setupIntersectionPrefetch() {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const url = this.extractURL(entry.target);
+          if (url) {
+            // Low priority prefetch for articles in viewport
+            setTimeout(() => this.prefetch(url, 'low'), 1000);
           }
         }
-      }
+      });
+    }, {
+      rootMargin: '100px',
+      threshold: 0.1
     });
 
-    mo.observe(container, { childList: true, subtree: true });
+    document.querySelectorAll('article[onclick]').forEach(article => {
+      observer.observe(article);
+    });
+
+    this.intersectionObserver = observer;
   }
 
-  // ---------- HOVER / PREFETCH ----------
-  attachHoverListener(card) {
-    const slug = card.dataset.slug;
-    if (!slug) return;
-
-    card.addEventListener("mouseenter", () => this.handleMouseEnter(slug, card));
-    card.addEventListener("mouseleave", () => this.handleMouseLeave(slug));
-    card.addEventListener("touchstart", () => this.prefetchArticle(slug), { passive: true });
+  prefetchVisible() {
+    const articles = Array.from(document.querySelectorAll('article[onclick]'));
+    articles.forEach((article, i) => {
+      const url = this.extractURL(article);
+      if (url) {
+        // Stagger prefetches to avoid blocking
+        setTimeout(() => this.prefetch(url, 'low'), i * 200);
+      }
+    });
   }
 
-  handleMouseEnter(slug, card) {
-    if (this.hoverTimers.has(slug)) clearTimeout(this.hoverTimers.get(slug));
-    const timer = setTimeout(() => {
-      this.prefetchArticle(slug);
-      this.hoverTimers.delete(slug);
-      card.style.transform = "translateY(-2px)";
-    }, this.options.prefetchDelay);
-    this.hoverTimers.set(slug, timer);
+  extractURL(article) {
+    const onclick = article.getAttribute('onclick');
+    if (!onclick) return null;
+    
+    const match = onclick.match(/['"]([^'"]+\.html)['"]/);
+    return match ? match[1] : null;
   }
 
-  handleMouseLeave(slug) {
-    const card = document.querySelector(`article[data-slug="${slug}"]`);
-    if (card) card.style.transform = "";
-    if (this.hoverTimers.has(slug)) {
-      clearTimeout(this.hoverTimers.get(slug));
-      this.hoverTimers.delete(slug);
-    }
-  }
+  async prefetch(url, priority = 'high') {
+    if (this.prefetched.has(url)) return;
+    if (this.cache.has(url)) return;
 
-  // ---------- PREFETCH + PRERENDER ----------
-  async prefetchArticle(slug) {
-    if (this.prefetchedSlugs.has(slug)) return;
-    if (this.activePrefetches >= this.options.maxConcurrentPrefetch) {
-      this.prefetchQueue.push(slug);
+    // Queue if too many active prefetches
+    if (this.activePrefetches >= this.options.maxConcurrent) {
+      if (!this.prefetchQueue.includes(url)) {
+        this.prefetchQueue.push(url);
+      }
       return;
     }
-    
-    if (!this.renderer) {
-        console.error("MarkdownRenderer not available for prefetching.");
-        return;
-    }
-
-    const articleMdUrl = `./articles/${slug}/article.md`;
 
     try {
       this.activePrefetches++;
-      this.prefetchedSlugs.add(slug);
+      this.prefetched.add(url);
 
-      const html = await this.renderer.renderFile(articleMdUrl);
-      this.htmlCache.set(slug, html);
+      const startTime = performance.now();
+      
+      // Fetch with appropriate priority
+      const response = await fetch(url, {
+        priority: priority,
+        cache: 'force-cache'
+      });
 
-      console.log(`✓ Prefetched and rendered: ${slug}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const html = await response.text();
+      
+      // Parse and cache the HTML
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      this.cache.set(url, {
+        html: html,
+        doc: doc,
+        timestamp: Date.now()
+      });
+
+      const duration = (performance.now() - startTime).toFixed(0);
+      console.log(`✓ Prefetched: ${url} (${duration}ms)`);
+
     } catch (err) {
-      console.error(`✗ Failed to prefetch/render ${slug}:`, err);
-      this.prefetchedSlugs.delete(slug); // Allow retrying
+      console.warn(`✗ Prefetch failed: ${url}`, err);
+      this.prefetched.delete(url);
     } finally {
       this.activePrefetches--;
       this.processQueue();
@@ -167,115 +188,105 @@ class ArticlePrefetcher {
 
   processQueue() {
     if (this.prefetchQueue.length === 0) return;
-    if (this.activePrefetches >= this.options.maxConcurrentPrefetch) return;
-    const slug = this.prefetchQueue.shift();
-    this.prefetchArticle(slug);
+    if (this.activePrefetches >= this.options.maxConcurrent) return;
+    
+    const url = this.prefetchQueue.shift();
+    this.prefetch(url);
   }
 
-  // ---------- NAVIGATION ----------
-  hijackClicks() {
-    document.addEventListener("click", async (e) => {
-      const articleCard = e.target.closest("article[data-slug]");
-      if (!articleCard) return;
+  setupInstantNav() {
+    document.addEventListener('click', (e) => {
+      const article = e.target.closest('article[onclick]');
+      if (!article) return;
 
-      const slug = articleCard.dataset.slug;
-      if (!slug) return;
+      const url = this.extractURL(article);
+      if (!url) return;
 
       e.preventDefault();
+      e.stopPropagation();
 
-      if (window.ArticleNavigator) {
-        const navigator = new ArticleNavigator();
-        await navigator.init();
+      this.navigate(url);
+    }, true);
+  }
 
-        if (this.htmlCache.has(slug)) {
-          const htmlContent = this.htmlCache.get(slug);
-          const metadataResponse = await fetch(`./articles/${slug}/metadata.json`);
-          const metadata = await metadataResponse.json();
+  navigate(url) {
+    const cached = this.cache.get(url);
 
-          navigator.currentArticle = {
-            slug,
-            ...metadata,
-            htmlContent,
-          };
-          navigator.renderArticlePage();
-          history.pushState({ slug }, "", `?article=${slug}`);
-          console.log(`⚡ Instant render from cache: ${slug}`);
-        } else {
-          await navigator.loadArticle(slug);
-          history.pushState({ slug }, "", `?article=${slug}`);
-        }
-      } else {
-        window.location.href = `?article=${slug}`;
+    if (cached) {
+      // INSTANT navigation from cache
+      const startTime = performance.now();
+      
+      // Extract the main content
+      const newMain = cached.doc.querySelector('main');
+      const currentMain = document.querySelector('main');
+      
+      if (newMain && currentMain) {
+        // Replace content
+        currentMain.innerHTML = newMain.innerHTML;
+        
+        // Update title
+        document.title = cached.doc.title;
+        
+        // Update URL
+        window.history.pushState({}, '', url);
+        
+        // Scroll to top instantly
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        
+        const duration = (performance.now() - startTime).toFixed(1);
+        console.log(`⚡ INSTANT NAV: ${url} (${duration}ms)`);
       }
-    });
-
-    window.addEventListener("popstate", (event) => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const articleSlug = urlParams.get("article");
-      if (articleSlug) {
-        if (window.ArticleNavigator) {
-            const navigator = new ArticleNavigator();
-            navigator.init().then(() => navigator.loadArticle(articleSlug));
-        } else {
-            window.location.href = `?article=${articleSlug}`;
-        }
-      } else {
-        window.location.href = window.location.pathname;
-      }
-    });
+    } else {
+      // Fallback to normal navigation
+      console.log(`→ Normal nav: ${url}`);
+      window.location.href = url;
+    }
   }
 
-  // ---------- UTILITIES ----------
-  prefetch(slug) {
-    return this.prefetchArticle(slug);
+  // Public API
+  clearCache() {
+    this.cache.clear();
+    this.prefetched.clear();
+    console.log('🗑️ Cache cleared');
   }
 
-  prefetchAll() {
-    document.querySelectorAll("article[data-slug]").forEach((c) => {
-      const slug = c.dataset.slug;
-      if (slug) this.prefetchQueue.push(slug);
-    });
-    this.processQueue();
-  }
-
-  clear() {
-    this.prefetchedSlugs.clear();
-    this.htmlCache.clear();
-    this.prefetchQueue = [];
-    this.hoverTimers.forEach((t) => clearTimeout(t));
-    this.hoverTimers.clear();
-  }
-
-  getStats() {
+  getCacheStats() {
     return {
-      prefetched: this.prefetchedSlugs.size,
-      cached: this.htmlCache.size,
-      queued: this.prefetchQueue.length,
-      active: this.activePrefetches,
-      slugs: Array.from(this.prefetchedSlugs),
+      cached: this.cache.size,
+      prefetched: this.prefetched.size,
+      queueLength: this.prefetchQueue.length,
+      active: this.activePrefetches
     };
+  }
+
+  prefetchURL(url) {
+    this.prefetch(url, 'high');
   }
 }
 
-// Auto-init
-if (typeof window !== "undefined") {
-  window.ArticlePrefetcher = ArticlePrefetcher;
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => {
-      window.articlePrefetcher = new ArticlePrefetcher({
-        prefetchDelay: 50,
-        maxConcurrentPrefetch: 2,
+// Auto-initialize
+if (typeof window !== 'undefined') {
+  // Wait for DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      window.prefetcher = new StaticPrefetcher({
+        hoverDelay: 65,
+        maxConcurrent: 3,
+        aggressiveMode: false,  // Set to true for maximum speed
+        instantNavigation: true
       });
     });
   } else {
-    window.articlePrefetcher = new ArticlePrefetcher({
-      prefetchDelay: 50,
-      maxConcurrentPrefetch: 2,
+    window.prefetcher = new StaticPrefetcher({
+      hoverDelay: 65,
+      maxConcurrent: 3,
+      aggressiveMode: false,
+      instantNavigation: true
     });
   }
 }
 
-// For module usage
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = ArticlePrefetcher;
+// Export for module systems
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = StaticPrefetcher;
 }

@@ -197,9 +197,6 @@
   .visible {
     visibility: visible;
   }
-  .absolute {
-    position: absolute;
-  }
   .static {
     position: static;
   }
@@ -266,11 +263,11 @@
   .grid {
     display: grid;
   }
-  .hidden {
-    display: none;
+  .inline-block {
+    display: inline-block;
   }
-  .inline {
-    display: inline;
+  .min-h-screen {
+    min-height: 100vh;
   }
   .w-20 {
     width: calc(var(--spacing) * 20);
