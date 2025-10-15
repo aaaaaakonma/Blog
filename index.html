@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brutal Blog Box</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              cardLight: "#e8e8e8",
+              cardDark: "#111111",
+              bgLight: "#f5f5f5",
+              bgDark: "#0a0a0a",
+              textLight: "#0a0a0a",
+              textDark: "#e8e8e8",
+              textMuted: "#525252",
+              textMutedDark: "#a0a0a0",
+              borderLight: "#000000",
+              borderDark: "#4a4a4a",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap");
+      body {
+        font-family: "Space Mono", monospace;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-bgLight dark:bg-bgDark text-textLight dark:text-textDark transition-colors duration-200"
+  >
+    <header class="container mx-auto my-7">
+      <div class="flex justify-between items-center">
+        <h1 class="text-4xl font-bold tracking-tighter">BRUTAL BLOG BOX</h1>
+        <nav>
+          <ul class="flex space-x-3">
+            <li
+              class="border-2 border-borderLight dark:border-borderDark rounded-sm px-4 py-2 font-bold"
+            >
+              ARCHIVE
+            </li>
+            <button
+              class="border-2 border-borderLight dark:border-borderDark rounded-sm px-4 py-2 font-bold"
+            >
+              ABOUT
+            </button>
+            <button
+              id="darkModeToggle"
+              class="border-2 border-borderLight dark:border-borderDark rounded-sm w-20 px-4 py-1 font-bold"
+            >
+              DARK
+            </button>
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <main class="container mx-auto">
+      <article
+        class="mb-4 border-2 border-borderLight dark:border-borderDark rounded-sm bg-cardLight dark:bg-cardDark p-3 shadow transition-all duration-100"
+      >
+        <header class="mb-6">
+          <h2 class="text-3xl font-bold mb-2 text-textLight dark:text-textDark">
+            THE ART OF BRUTALIST DESIGN
+          </h2>
+          <div
+            class="flex space-x-4 text-sm text-textMuted dark:text-textMutedDark"
+          >
+            <span>2023-11-15</span>
+            <span>•</span>
+            <span>DESIGN</span>
+            <span>•</span>
+            <span>4 MIN READ</span>
+          </div>
+        </header>
+        <p class="mb-4 leading-relaxed text-textMuted dark:text-textMutedDark">
+          Brutalism in web design rejects unnecessary decoration in favor of
+          bold, raw interfaces. This approach emphasizes content over form,
+          using high contrast typography, unpolished elements, and grid-based
+          layouts.
+        </p>
+        <p class="leading-relaxed text-textMuted dark:text-textMutedDark">
+          The movement originated from architectural brutalism of the mid-20th
+          century, where buildings showcased raw concrete and structural
+          elements rather than hiding them. In digital spaces, this translates
+          to exposed HTML elements, default browser styling, and monochromatic
+          color schemes.
+        </p>
+      </article>
+      <article
+        class="mb-4 border-2 border-borderLight dark:border-borderDark rounded-sm bg-cardLight dark:bg-cardDark p-4 shadow transition-all duration-100"
+      >
+        <header class="mb-6">
+          <h2 class="text-3xl font-bold mb-2 text-textLight dark:text-textDark">
+            WHY YOUR WEBSITE DOESN'T NEED JAVASCRIPT
+          </h2>
+          <div
+            class="flex space-x-4 text-sm text-textMuted dark:text-textMutedDark"
+          >
+            <span>2023-10-28</span>
+            <span>•</span>
+            <span>TECH</span>
+            <span>•</span>
+            <span>6 MIN READ</span>
+          </div>
+        </header>
+        <p class="mb-4 leading-relaxed text-textMuted dark:text-textMutedDark">
+          Modern web development has become obsessed with JavaScript frameworks,
+          often at the expense of accessibility, performance, and simplicity.
+          Many websites can function perfectly well with just HTML and CSS.
+        </p>
+        <p class="leading-relaxed text-textMuted dark:text-textMutedDark">
+          Consider that the average webpage now ships over 400KB of JavaScript,
+          yet most interactions could be handled with simple form submissions
+          and page refreshes. This article explores how to build functional
+          websites without client-side JavaScript.
+        </p>
+      </article>
+      <article
+        class="mb-4 border-2 border-borderLight dark:border-borderDark rounded-sm bg-cardLight dark:bg-cardDark p-4 shadow transition-all duration-200"
+      >
+        <header class="mb-6">
+          <h2 class="text-3xl font-bold mb-2 text-textLight dark:text-textDark">
+            THE CASE FOR MONOSPACED TYPEFACES
+          </h2>
+          <div
+            class="flex space-x-4 text-sm text-textMuted dark:text-textMutedDark"
+          >
+            <span>2023-09-12</span>
+            <span>•</span>
+            <span>TYPOGRAPHY</span>
+            <span>•</span>
+            <span>3 MIN READ</span>
+          </div>
+        </header>
+        <p class="mb-4 leading-relaxed text-textMuted dark:text-textMutedDark">
+          Monospaced fonts, once relegated to terminal windows and code editors,
+          are making a comeback in mainstream design. Their uniform character
+          width creates a rhythmic reading experience that many find calming and
+          focused.
+        </p>
+        <p class="leading-relaxed text-textMuted dark:text-textMutedDark">
+          Beyond aesthetics, monospaced typefaces force designers to think
+          differently about layout and hierarchy. The constraints lead to
+          creative solutions and more deliberate typographic choices. This
+          article examines several websites using monospace effectively.
+        </p>
+      </article>
+      <div class="flex justify-center">
+        <button
+          class="border-2 border-borderLight dark:border-borderDark rounded-sm px-4 py-2 bg-cardLight dark:bg-cardDark font-medium text-md mt-2 shadow transition-all duration-100"
+        >
+          LOAD MORE ARTICLES
+        </button>
+      </div>
+    </main>
+    <footer class="container mx-auto mt-16 mb-8 text-sm">
+      <div
+        class="border-2 border-borderLight dark:border-borderDark rounded-sm p-2"
+      >
+        <div class="flex justify-between items-center">
+          <p>© 2023 BRUTAL BLOG BOX. NO RIGHTS RESERVED.</p>
+          <p>BUILT WITH HTML AND RAGE</p>
+        </div>
+      </div>
+    </footer>
+    <script>
+      const darkToggle = document.getElementById("darkModeToggle");
+      darkToggle.addEventListener("mousedown", () => {
+        document.documentElement.classList.toggle("dark");
+        if (document.documentElement.classList.contains("dark")) {
+          darkToggle.textContent = "LIGHT";
+        } else {
+          darkToggle.textContent = "DARK";
+        }
+      });
+    </script>
+  </body>
+</html>
