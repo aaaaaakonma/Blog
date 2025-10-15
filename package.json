@@ -5,7 +5,7 @@
   "scripts": {
     "convert": "node build.js",
     "redraw": "npx @tailwindcss/cli -i style.css -o output.css --watch",
-    "build": "node build.js && npx @tailwindcss/cli -i style.css -o output.css --watch"
+    "build": "node build.js && npx @tailwindcss/cli -i style.css -o ./public/output.css --watch"
   },
   "keywords": [],
   "author": "",
