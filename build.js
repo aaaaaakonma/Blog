@@ -296,15 +296,39 @@ class BlogBuilder {
     </div>
   </footer>
   <script src="prefetch-static.js"></script>
-  <script>
+<script>
     // Dark mode toggle
     const darkToggle = document.getElementById("darkModeToggle");
+    const preferDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+    function applyTheme() {
+      const currentTheme = localStorage.getItem('theme');
+      if (currentTheme === 'dark' || (!currentTheme && preferDark.matches)) {
+        document.documentElement.classList.add('dark');
+        darkToggle.textContent = "LIGHT";
+      } else {
+        document.documentElement.classList.remove('dark');
+        darkToggle.textContent = "DARK";
+      }
+    }
+
     if (darkToggle) {
       darkToggle.addEventListener("mousedown", () => {
-        document.documentElement.classList.toggle("dark");
-        darkToggle.textContent = document.documentElement.classList.contains("dark") ? "LIGHT" : "DARK";
+        const isDark = document.documentElement.classList.toggle("dark");
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        darkToggle.textContent = isDark ? "LIGHT" : "DARK";
       });
     }
+
+    // Apply theme and prefetch on load
+    document.addEventListener('DOMContentLoaded', () => {
+      applyTheme();
+      if (window.prefetcher) {
+        setTimeout(() => {
+          window.prefetcher.prefetchURL('index.html');
+        }, 200);
+      }
+    });
   </script>
 </body>
 </html>`;

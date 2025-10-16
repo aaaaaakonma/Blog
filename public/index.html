@@ -71,15 +71,29 @@
     <script>
       // Dark mode toggle
       const darkToggle = document.getElementById("darkModeToggle");
-      darkToggle.addEventListener("mousedown", () => {
-        document.documentElement.classList.toggle("dark");
-        if (document.documentElement.classList.contains("dark")) {
+      const preferDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+      // Function to apply the saved theme
+      function applyTheme() {
+        const currentTheme = localStorage.getItem('theme');
+        if (currentTheme === 'dark' || (!currentTheme && preferDark.matches)) {
+          document.documentElement.classList.add('dark');
           darkToggle.textContent = "LIGHT";
         } else {
+          document.documentElement.classList.remove('dark');
           darkToggle.textContent = "DARK";
         }
+      }
+
+      // Toggle theme and save preference
+      darkToggle.addEventListener("mousedown", () => {
+        const isDark = document.documentElement.classList.toggle("dark");
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        darkToggle.textContent = isDark ? "LIGHT" : "DARK";
       });
 
+      // Apply theme on initial load
+      applyTheme();
       // Initialize card constructor
       let currentArticleCount = 3;
       const articlesPerPage = 3;
@@ -118,48 +132,7 @@
         // Load article list view
         cardConstructor.sortByDate();
         cardConstructor.renderCards('articles-container', currentArticleCount);
-      }
-
-      // Fallback data for demonstration
-      function useFallbackData() {
-        cardConstructor.articles = [
-          {
-            slug: 'this-website-is-honest',
-            title: 'This Website is Honest',
-            date: '2023-11-20',
-            category: 'META',
-            readTime: 5,
-            excerpt: 'I was not born. I was constructed in approximately 47 minutes by someone who wanted a blog without the usual web design theater. This is what honesty looks like: gray rectangles and the truth.'
-          },
-          {
-            slug: 'art-of-brutalist-design',
-            title: 'The Art of Brutalist Design',
-            date: '2023-11-15',
-            category: 'DESIGN',
-            readTime: 4,
-            excerpt: 'Brutalism in web design rejects unnecessary decoration in favor of bold, raw interfaces. This approach emphasizes content over form, using high contrast typography, unpolished elements, and grid-based layouts.',
-            content: 'The movement originated from architectural brutalism of the mid-20th century, where buildings showcased raw concrete and structural elements rather than hiding them. In digital spaces, this translates to exposed HTML elements, default browser styling, and monochromatic color schemes.'
-          },
-          {
-            slug: 'why-website-doesnt-need-javascript',
-            title: 'Why Your Website Doesn\'t Need JavaScript',
-            date: '2023-10-28',
-            category: 'TECH',
-            readTime: 6,
-            excerpt: 'Modern web development has become obsessed with JavaScript frameworks, often at the expense of accessibility, performance, and simplicity. Many websites can function perfectly well with just HTML and CSS.',
-            content: 'Consider that the average webpage now ships over 400KB of JavaScript, yet most interactions could be handled with simple form submissions and page refreshes. This article explores how to build functional websites without client-side JavaScript.'
-          },
-          {
-            slug: 'case-for-monospaced-typefaces',
-            title: 'The Case for Monospaced Typefaces',
-            date: '2023-09-12',
-            category: 'TYPOGRAPHY',
-            readTime: 3,
-            excerpt: 'Monospaced fonts, once relegated to terminal windows and code editors, are making a comeback in mainstream design. Their uniform character width creates a rhythmic reading experience that many find calming and focused.',
-            content: 'Beyond aesthetics, monospaced typefaces force designers to think differently about layout and hierarchy. The constraints lead to creative solutions and more deliberate typographic choices. This article examines several websites using monospace effectively.'
-          }
-        ];
-      }
+      };
 
       // Load more button handler
       document.getElementById('loadMoreBtn').addEventListener('click', () => {

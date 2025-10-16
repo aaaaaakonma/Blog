@@ -98,33 +98,35 @@ card.setAttribute('onclick', `window.location.href='${article.slug}.html'`);
       
       return card;
     }
-  
-    /**
+/**
      * Renders all article cards to the specified container
-     */ 
-    renderCards(containerId = 'articles-container', limit = null) {
-      const container = document.getElementById(containerId);
-      if (!container) {
-        console.error(`Container with id "${containerId}" not found`);
-        return;
+     */
+renderCards(containerId = 'articles-container', limit = null) {
+  const container = document.getElementById(containerId);
+  if (!container) {
+    console.error(`Container with id "${containerId}" not found`);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  // Determine how many articles to render
+  const articlesToRender = limit ? this.articles.slice(0, limit) : this.articles;
+
+  // Create and append cards to the fragment
+  articlesToRender.forEach(article => {
+    if (article) {
+      const card = this.createCard(article);
+      if (card) {
+        fragment.appendChild(card);
       }
-  
-      // Clear existing content
-      container.innerHTML = '';
-  
-      // Determine how many articles to render
-      const articlesToRender = limit ? this.articles.slice(0, limit) : this.articles;
-  
-      // Create and append cards
-      articlesToRender.forEach(article => {
-        if (article) {
-          const card = this.createCard(article);
-          if (card) {
-            container.appendChild(card);
-          }
-        }
-      });
     }
+  });
+
+  // Clear existing content and append the fragment in one go
+  container.innerHTML = '';
+  container.appendChild(fragment);
+}
   
     /**
      * Filters articles by category
