@@ -93,17 +93,15 @@ class CardConstructor {
         card.appendChild(excerpt);
       }
   
-      // Add click handler to navigate to full article
-      card.addEventListener('click', () => {
-        window.location.href = `${article.slug}.html`;
-      });
+// Add click handler to navigate to full article
+card.setAttribute('onclick', `window.location.href='${article.slug}.html'`);
       
       return card;
     }
   
     /**
      * Renders all article cards to the specified container
-     */
+     */ 
     renderCards(containerId = 'articles-container', limit = null) {
       const container = document.getElementById(containerId);
       if (!container) {

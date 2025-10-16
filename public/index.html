@@ -179,14 +179,6 @@
 
       // Initialize on page load
       initializeArticles();
-
-      // Initialize prefetcher after a short delay to ensure cards are rendered
-      setTimeout(() => {
-        if (window.articlePrefetcher) {
-          window.articlePrefetcher.observeAllCards();
-          console.log('🚀 Prefetching enabled');
-        }
-      }, 500);
     </script>
   </body>
 </html>
