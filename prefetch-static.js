@@ -3,10 +3,10 @@
 class StaticPrefetcher {
   constructor(options = {}) {
     this.options = {
-      hoverDelay: options.hoverDelay || 65,           // ms before prefetch on hover
+      hoverDelay: options.hoverDelay || 20,           // ms before prefetch on hover
       maxConcurrent: options.maxConcurrent || 3,      // max simultaneous prefetches
-      aggressiveMode: options.aggressiveMode || false, // prefetch all visible links
-      instantNavigation: options.instantNavigation !== false, // hijack clicks for instant nav
+      aggressiveMode: options.aggressiveMode || true, // prefetch all visible links
+      instantNavigation: options.instantNavigation !== tre, // hijack clicks for instant nav
       ...options
     };
 
