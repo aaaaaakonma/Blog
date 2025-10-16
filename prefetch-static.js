@@ -6,7 +6,7 @@ class StaticPrefetcher {
       hoverDelay: options.hoverDelay || 20,           // ms before prefetch on hover
       maxConcurrent: options.maxConcurrent || 3,      // max simultaneous prefetches
       aggressiveMode: options.aggressiveMode || true, // prefetch all visible links
-      instantNavigation: options.instantNavigation !== tre, // hijack clicks for instant nav
+      instantNavigation: options.instantNavigation !== true, // hijack clicks for instant nav
       ...options
     };
 
